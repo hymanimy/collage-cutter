@@ -1,6 +1,8 @@
 # Collage Cutter ✂
 
-A digital version of cutting photos out and sticking them on paper. Everything runs locally in your browser, and your photos never leave your machine.
+A basic webpage app for making digital collages, where you can cut photos out and stick them on paper. 
+
+This was borne out my frustration for how how weirdly hard it is to find a basic app for cutting photos and collaging them. From my experience, they are either all bloated to the high gunnels and/or have features behind a paywall (including object detection!) - this lil' project intends to solve that. 
 
 ## Start
 
