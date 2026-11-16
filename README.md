@@ -66,4 +66,5 @@ A digital version of cutting photos out and sticking them on paper. Everything r
 - Very large photos are scaled to at most 4000 px on the long edge when imported, which keeps the app quick and still prints sharply.
 - HEIC photos (from iPhones) can't be decoded by browsers. Export them as JPEG first.
 - AI: [transformers.js](https://github.com/huggingface/transformers.js) 3.8 running [D-FINE](https://huggingface.co/onnx-community/dfine_s_coco-ONNX) and [SAM 2.1 tiny](https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX) (both Apache-2.0), pinned to exact versions.
-- Built with [Fabric.js](http://fabricjs.com/) 5.3 and [jsPDF](https://github.com/parallax/jsPDF) 2.5, both in `lib/`. The fonts come from Google Fonts via Fontsource (SIL Open Font License) and are embedded in `css/fonts.css` so they work offline.
+- Built with [Fabric.js](http://fabricjs.com/) 5.3 and [jsPDF](https://github.com/parallax/jsPDF) 2.5, both in `lib/`. The fonts come from Google Fonts via Fontsource (SIL Open Font License or Apache 2.0) and are embedded in `css/fonts.css` so they work offline.
+- Third-party licences and copyright notices are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md), with the full texts in `licenses/`.
