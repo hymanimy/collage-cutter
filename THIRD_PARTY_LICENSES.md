@@ -1,6 +1,6 @@
 # Third-party licences
 
-Collage Cutter includes the following third-party software and fonts. Each one is used under its own licence. The full licence texts are in the [`licenses/`](licenses) folder.
+Collage Cutter's own code is under the MIT License (see [LICENSE](LICENSE)). It also includes the following third-party software and fonts. Each one is used under its own licence. The full licence texts are in the [`licenses/`](licenses) folder.
 
 ## Bundled libraries (`lib/`)
 
