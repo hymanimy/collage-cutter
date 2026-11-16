@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Collage Cutter</title>
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span data-icon="scissors"></span>Collage Cutter</div>
+
+    <div class="tb-group">
+      <button class="tb-btn" id="btnNew" data-icon="filePlus" title="New collage">New</button>
+      <button class="tb-btn" id="btnOpen" data-icon="folder" title="Open a .collage project (Ctrl+O)">Open</button>
+      <button class="tb-btn" id="btnSave" data-icon="save" title="Save project file (Ctrl+S)">Save</button>
+    </div>
+
+    <div class="tb-group">
+      <button class="tb-btn icon-only" id="btnUndo" data-icon="undo" title="Undo (Ctrl+Z)"></button>
+      <button class="tb-btn icon-only" id="btnRedo" data-icon="redo" title="Redo (Ctrl+Shift+Z)"></button>
+    </div>
+
+    <div class="tb-group">
+      <button class="tb-btn" id="btnAddPhotos" data-icon="imagePlus" title="Add photos to the tray">Add photos</button>
+      <button class="tb-btn" id="btnAddText" data-icon="type" title="Add text (T)">Text</button>
+    </div>
+
+    <div class="tb-spacer"></div>
+
+    <div class="tb-group zoom-group">
+      <button class="tb-btn icon-only" id="btnZoomOut" data-icon="minus" title="Zoom out (Ctrl+−)"></button>
+      <button class="tb-btn zoom-label" id="zoomLabel" title="Zoom to fit (Ctrl+0)">100%</button>
+      <button class="tb-btn icon-only" id="btnZoomIn" data-icon="plus" title="Zoom in (Ctrl+=)"></button>
+      <button class="tb-btn icon-only" id="btnFit" data-icon="fit" title="Fit paper to window (Ctrl+0)"></button>
+    </div>
+
+    <button class="tb-btn primary" id="btnExport" data-icon="download" title="Export PNG, JPEG or PDF (Ctrl+E)">Export</button>
+  </header>
+
+  <main class="layout">
+    <aside class="tray" id="tray">
+      <div class="panel-head">
+        <h2>Photos</h2>
+        <div class="head-actions">
+          <button class="mini-btn" id="btnTrayClear" data-icon="trash" title="Clear tray: remove all photos (pieces on the paper stay)" hidden></button>
+          <button class="mini-btn" id="btnTrayAdd" data-icon="plus" title="Add photos"></button>
+        </div>
+      </div>
+      <div class="tray-grid" id="trayGrid"></div>
+      <div class="tray-empty" id="trayEmpty">
+        <div class="drop-art" data-icon="imagePlus"></div>
+        <p><strong>Drop photos here</strong><br>or anywhere in the window.<br>You can also paste with Ctrl+V.</p>
+        <button class="btn" id="btnTrayBrowse">Browse…</button>
+      </div>
+    </aside>
+
+    <section class="workspace" id="workspace">
+      <canvas id="board"></canvas>
+      <div class="empty-hint" id="emptyHint">
+        <p><span data-icon="scissors"></span> Click a photo in the tray to cut a piece out of it</p>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="layers-panel">
+        <div class="panel-head">
+          <h2>Layers</h2>
+          <div class="head-actions">
+            <button class="mini-btn" data-act="toBack" data-icon="toBack" title="Send to back (Ctrl+[)"></button>
+            <button class="mini-btn" data-act="backward" data-icon="chevDown" title="Send backward ([)"></button>
+            <button class="mini-btn" data-act="forward" data-icon="chevUp" title="Bring forward (])"></button>
+            <button class="mini-btn" data-act="toFront" data-icon="toFront" title="Bring to front (Ctrl+])"></button>
+          </div>
+        </div>
+        <ul class="layer-list" id="layerList"></ul>
+        <div class="layers-empty" id="layersEmpty">Pieces and text you add appear here. The top of the list is the top of the pile.</div>
+      </section>
+      <section class="props-panel" id="props"></section>
+    </aside>
+  </main>
+
+  <!-- Full-window drop overlay -->
+  <div class="drop-overlay" id="dropOverlay"><div><span data-icon="imagePlus"></span>Drop photos to add them to the tray</div></div>
+
+  <!-- Cutting window -->
+  <div class="cutter" id="cutter" hidden>
+    <div class="cutter-bar">
+      <div class="cutter-title" id="cutTitle">Cut out</div>
+
+      <div class="seg" id="cutTools">
+        <button data-tool="adjust" data-icon="pointer" title="Adjust: move and resize shapes (V)"></button>
+        <button data-tool="lasso" data-icon="lasso" title="Freehand lasso (L)"></button>
+        <button data-tool="polygon" data-icon="polygon" title="Polygon, click to place points (P)"></button>
+        <button data-tool="rect" data-icon="square" title="Rectangle (R)"></button>
+        <button data-tool="ellipse" data-icon="circle" title="Ellipse (E)"></button>
+        <button data-tool="magic" data-icon="wand" title="Magic select: click an object to cut it out (W). Click the same spot again for a bigger or smaller selection."></button>
+      </div>
+      <button class="tb-btn ai-btn" id="cutFind" data-icon="sparkles" title="Find the objects in this photo automatically (F)">Find objects</button>
+
+      <div class="seg text-seg" id="cutModes">
+        <button data-mode="replace" title="Each new shape replaces the selection">New</button>
+        <button data-mode="add" title="Add to the selection (hold Shift)">Add</button>
+        <button data-mode="sub" title="Subtract from the selection (hold Alt)">Subtract</button>
+      </div>
+
+      <label class="slider-field" title="Smooth out jagged freehand lines; rounds rectangle corners">
+        <span>Smooth</span><input type="range" id="cutSmooth" min="0" max="100" value="0"><output id="cutSmoothVal">0</output>
+      </label>
+      <label class="slider-field" title="Soften the cut edge">
+        <span>Feather</span><input type="range" id="cutFeather" min="0" max="100" value="0"><output id="cutFeatherVal">0</output>
+      </label>
+
+      <div class="tb-group">
+        <button class="tb-btn icon-only" id="cutWhole" data-icon="image" title="Select the whole photo"></button>
+        <button class="tb-btn icon-only" id="cutClear" data-icon="trash" title="Clear all shapes"></button>
+        <button class="tb-btn icon-only" id="cutUndo" data-icon="undo" title="Undo (Ctrl+Z)"></button>
+        <button class="tb-btn icon-only" id="cutRedo" data-icon="redo" title="Redo (Ctrl+Shift+Z)"></button>
+      </div>
+
+      <div class="tb-spacer"></div>
+
+      <button class="tb-btn" id="cutCancel">Cancel</button>
+      <button class="tb-btn" id="cutPlaceMore" title="Place the piece and keep cutting this photo (Shift+Enter)">Place + cut more</button>
+      <button class="tb-btn primary" id="cutPlace" title="Place the piece on the paper (Enter)">Place on paper</button>
+    </div>
+    <div class="cutter-stage" id="cutStage">
+      <canvas id="cutCanvas"></canvas>
+      <div class="cand-panel" id="candPanel" hidden></div>
+      <div class="ai-status" id="aiStatus" hidden>
+        <span class="spinner"></span><span id="aiStatusText"></span>
+        <div class="ai-bar" id="aiBarWrap"><div id="aiBar"></div></div>
+      </div>
+    </div>
+    <div class="cutter-status">
+      <span id="cutHint"></span>
+      <span class="cut-nav-hint">Shift: add · Alt: subtract · Scroll / Space+drag: pan · Ctrl+scroll: zoom</span>
+      <div class="cut-zoom">
+        <button class="tb-btn icon-only" id="cutZoomOut" data-icon="minus" title="Zoom out (−)"></button>
+        <button class="tb-btn icon-only" id="cutFit" data-icon="fit" title="Fit (0)"></button>
+        <button class="tb-btn icon-only" id="cutZoomIn" data-icon="plus" title="Zoom in (+)"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export dialog -->
+  <div class="modal-backdrop" id="exportDlg" hidden>
+    <div class="modal" role="dialog" aria-labelledby="exportTitle">
+      <h3 id="exportTitle">Export collage</h3>
+      <div class="field">
+        <span class="field-label">Format</span>
+        <div class="seg text-seg wide" id="exFormat">
+          <button data-v="png" class="on">PNG</button>
+          <button data-v="jpeg">JPEG</button>
+          <button data-v="pdf">PDF</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="field-label">Resolution</span>
+        <div class="seg text-seg wide" id="exDpi">
+          <button data-v="96">Screen</button>
+          <button data-v="150">150 DPI</button>
+          <button data-v="300" class="on">300 DPI print</button>
+        </div>
+      </div>
+      <div class="field" id="exQualityRow">
+        <span class="field-label">JPEG quality</span>
+        <label class="slider-field"><input type="range" id="exQuality" min="50" max="100" value="92"><output id="exQualityVal">92</output></label>
+      </div>
+      <label class="check" id="exTransparentRow"><input type="checkbox" id="exTransparent"> Transparent background (no paper colour)</label>
+      <p class="ex-info" id="exInfo"></p>
+      <div class="modal-actions">
+        <button class="btn" data-close>Cancel</button>
+        <button class="btn primary" id="exGo">Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic confirm dialog -->
+  <div class="modal-backdrop" id="confirmDlg" hidden>
+    <div class="modal small" role="alertdialog">
+      <h3 id="confirmTitle"></h3>
+      <p id="confirmMsg"></p>
+      <div class="modal-actions">
+        <button class="btn" id="confirmCancel">Cancel</button>
+        <button class="btn primary" id="confirmOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+
+  <input type="file" id="photoInput" accept="image/*" multiple hidden>
+  <input type="file" id="projectInput" accept=".collage,application/json" hidden>
+
+  <script src="lib/fabric.min.js"></script>
+  <script src="lib/jspdf.umd.min.js"></script>
+  <script src="js/util.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/geometry.js"></script>
+  <script src="js/sources.js"></script>
+  <script src="js/cuts.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/ai-worker.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/cutter.js"></script>
+  <script src="js/panels.js"></script>
+  <script src="js/io.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
