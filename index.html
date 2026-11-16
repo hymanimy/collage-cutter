@@ -11,9 +11,14 @@
   <header class="topbar">
     <div class="brand"><span data-icon="scissors"></span>Collage Cutter</div>
 
+    <div class="seg text-seg mode-seg" id="modeSeg" title="Switch between a single collage and an 8-page zine. Each keeps its own work.">
+      <button data-mode="collage" class="on">Collage</button>
+      <button data-mode="zine">Zine</button>
+    </div>
+
     <div class="tb-group">
       <button class="tb-btn" id="btnNew" data-icon="filePlus" title="New collage">New</button>
-      <button class="tb-btn" id="btnOpen" data-icon="folder" title="Open a .collage project (Ctrl+O)">Open</button>
+      <button class="tb-btn" id="btnOpen" data-icon="folder" title="Open a .collage or .zine file (Ctrl+O)">Open</button>
       <button class="tb-btn" id="btnSave" data-icon="save" title="Save project file (Ctrl+S)">Save</button>
     </div>
 
@@ -56,10 +61,38 @@
       </div>
     </aside>
 
-    <section class="workspace" id="workspace">
-      <canvas id="board"></canvas>
-      <div class="empty-hint" id="emptyHint">
-        <p><span data-icon="scissors"></span> Click a photo in the tray to cut a piece out of it</p>
+    <section class="center">
+      <section class="workspace" id="workspace">
+        <canvas id="board"></canvas>
+        <div class="empty-hint" id="emptyHint">
+          <p><span data-icon="scissors"></span> <span id="emptyHintText">Click a photo in the tray to cut a piece out of it</span></p>
+        </div>
+        <!-- Zine: the printed sheet, both sides -->
+        <div class="zine-sheet" id="zineSheet" hidden>
+          <div class="zsv-inner">
+            <figure>
+              <figcaption><b>Front of the sheet</b> · the 8 pages. Click a page to edit it.</figcaption>
+              <canvas id="zsvFront"></canvas>
+            </figure>
+            <figure>
+              <figcaption><b>Back of the sheet</b> · the poster, seen when the zine is unfolded</figcaption>
+              <canvas id="zsvBack"></canvas>
+            </figure>
+          </div>
+          <p class="zsv-legend">The top row prints upside down so every page is the right way up once folded.
+            Dashed lines are folds and the red line is the only cut.
+            <a data-fold-link target="_blank" rel="noopener noreferrer">See this image on how to fold a zine</a> (illustration by 42nd Street).</p>
+        </div>
+      </section>
+      <!-- Zine: pages in reading order -->
+      <div class="zine-strip" id="zineStrip" hidden>
+        <div class="seg text-seg" id="zineView">
+          <button data-v="pages" class="on" title="Edit the pages">Pages</button>
+          <button data-v="sheet" title="See the printed sheet, both sides">Sheet</button>
+        </div>
+        <div class="zthumbs" id="zineThumbs"></div>
+        <a class="tb-btn" data-fold-link data-icon="help" target="_blank" rel="noopener noreferrer" title="See this image on how to fold a zine, illustrated by 42nd Street (opens in a new tab)">How to fold</a>
+        <button class="tb-btn" id="zinePreviewBtn" data-icon="book" title="Turn the pages of the folded zine">Flip through</button>
       </div>
     </section>
 
@@ -177,6 +210,47 @@
     </div>
   </div>
 
+  <!-- Zine export -->
+  <div class="modal-backdrop" id="zineExportDlg" hidden>
+    <div class="modal" role="dialog" aria-labelledby="zxTitle">
+      <h3 id="zxTitle">Export zine as PDF</h3>
+      <div class="field">
+        <span class="field-label">Resolution</span>
+        <div class="seg text-seg wide" id="zxDpi">
+          <button data-v="150">150 DPI</button>
+          <button data-v="300" class="on">300 DPI print</button>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="zxPoster"> Poster on the back (page 2 of the PDF)</label>
+      <p class="ex-info" id="zxInfo"></p>
+      <div class="zx-tips">
+        <b>Printing</b>
+        <ul>
+          <li>Print at <b>actual size / 100%</b>, not “fit to page”.</li>
+          <li>For the poster, print <b>double-sided</b>. Either flip setting works, because that side ends up hidden inside the folded zine.</li>
+          <li>Then fold it: <a data-fold-link target="_blank" rel="noopener noreferrer">see this image on how to fold a zine</a> (illustration by 42nd Street).</li>
+        </ul>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" data-close>Cancel</button>
+        <button class="btn primary" id="zxGo">Export PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Zine flip-through preview -->
+  <div class="modal-backdrop zp-backdrop" id="zinePreview" hidden>
+    <div class="zp">
+      <div class="zp-stage"><div class="zp-book" id="zpBook"></div></div>
+      <div class="zp-bar">
+        <button class="btn" id="zpPrev">‹ Back</button>
+        <span id="zpLabel"></span>
+        <button class="btn" id="zpNext">Next ›</button>
+        <button class="btn" data-close>Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Generic confirm dialog -->
   <div class="modal-backdrop" id="confirmDlg" hidden>
     <div class="modal small" role="alertdialog">
@@ -192,7 +266,8 @@
   <div class="toasts" id="toasts"></div>
 
   <input type="file" id="photoInput" accept="image/*" multiple hidden>
-  <input type="file" id="projectInput" accept=".collage,application/json" hidden>
+  <input type="file" id="projectInput" accept=".collage,.zine,application/json" hidden>
+  <input type="file" id="zineFillInput" accept=".collage,image/*" hidden>
 
   <script src="lib/fabric.min.js"></script>
   <script src="lib/jspdf.umd.min.js"></script>
@@ -207,6 +282,7 @@
   <script src="js/cutter.js"></script>
   <script src="js/panels.js"></script>
   <script src="js/io.js"></script>
+  <script src="js/zine.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

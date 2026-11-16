@@ -64,6 +64,7 @@
   function evict() {
     if (C.cache.size <= 40) return;
     const inUse = CC.board && CC.board.ready ? CC.board.usedCutIds() : new Set();
+    if (CC.zine) for (const id of CC.zine.usedCutIds()) inUse.add(id);
     const victims = [...C.cache.entries()].filter(([id]) => !inUse.has(id.split('|')[0])).sort((a, b) => a[1].used - b[1].used);
     for (const [id] of victims.slice(0, C.cache.size - 30)) C.cache.delete(id);
   }

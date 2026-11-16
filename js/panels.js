@@ -200,6 +200,19 @@
       <button class="pbtn danger" data-act="delete" data-icon="trash" title="Delete (Del)">Delete</button>
     </div>`;
 
+  // On a zine spread, a piece can be trimmed to the page it sits on (so it doesn't cross the fold).
+  function clipHTML(o) {
+    const p = B.paper;
+    if (!p.pages || p.pages.length < 2) return '';
+    const c = B.objCenter(o);
+    const i = o.clip != null ? o.clip : Math.max(0, B.pageIndexAt(c.x, c.y));
+    const n = p.pages[i] ? p.pages[i].num : '';
+    return `
+      <div class="psec">
+        <label class="check"><input type="checkbox" id="pClip" ${o.clip != null ? 'checked' : ''}> Trim to page ${n} (don’t cross the fold)</label>
+      </div>`;
+  }
+
   const lockedNote = (o) => (o.locked ? `<p class="note">${U.icon('lock')} Locked — unlock it in the layers list to edit.</p>` : '');
 
   function cutHTML(o) {
@@ -211,7 +224,7 @@
         ${lockedNote(o)}
         ${o.locked ? '' : actionsHTML({ reedit: true })}
       </div>
-      ${o.locked ? '' : stickerHTML(o) + commonHTML(o) + arrangeHTML(false)}`;
+      ${o.locked ? '' : stickerHTML(o) + clipHTML(o) + commonHTML(o) + arrangeHTML(false)}`;
   }
 
   // Sticker thickness is shown in paper pixels (what you see), stored in cut-out pixels (scales with the piece).
@@ -283,12 +296,17 @@
           <label class="slider-field full"><span>Rounding</span><input type="range" id="pBoxRad" min="0" max="100" value="${Math.round(o.boxRadius * 100)}"><output></output></label>
         </div>
       </div>
+      ${clipHTML(o)}
       ${commonHTML(o)}
       <div class="psec">${actionsHTML()}</div>
       ${arrangeHTML(false)}`;
   }
 
   function paperHTML() {
+    return (CC.zine.active ? CC.zine.panelHTML() : paperSecHTML()) + aiHTML() + tipsHTML();
+  }
+
+  function paperSecHTML() {
     const p = B.paper;
     const unit = p.unit || 'mm';
     const dec = unit === 'px' ? 0 : unit === 'in' ? 2 : 1;
@@ -308,12 +326,20 @@
           <select id="pUnit" class="unit">${['mm', 'in', 'px'].map((u) => `<option ${u === unit ? 'selected' : ''}>${u}</option>`).join('')}</select>
         </div>
         <div class="row color-row"><span class="lbl">Colour</span><input type="color" id="pPaperColor" value="${toHex(p.color)}">${swatches(PAPERS, 'pPaperColor')}</div>
-      </div>
+      </div>`;
+  }
+
+  function aiHTML() {
+    return `
       <div class="psec" id="pAiSec" hidden>
         <h3>${U.icon('sparkles')} AI models</h3>
         <div class="ai-row"><span>Stored in this browser (~96 MB), so they work offline.</span>
           <button class="pbtn small" id="pAiRemove" title="Delete the downloaded AI models">Remove</button></div>
-      </div>
+      </div>`;
+  }
+
+  function tipsHTML() {
+    return `
       <div class="psec tips">
         <h3>${U.icon('keyboard')} Handy shortcuts</h3>
         <dl>
@@ -327,6 +353,7 @@
           <dt>T</dt><dd>Add text</dd>
           <dt>Space+drag</dt><dd>Pan</dd>
           <dt>Ctrl+scroll</dt><dd>Zoom</dd>
+          ${CC.zine.active ? '<dt>PgUp / PgDn</dt><dd>Previous / next zine page</dd>' : ''}
         </dl>
       </div>`;
   }
@@ -383,6 +410,20 @@
     on('pAngleReset', 'click', () => { setAngle(0); $('pAngle').value = 0; });
 
     if (objs.length === 1 && objs[0].kind === 'cut' && !objs[0].locked) bindSticker(objs[0], $, on);
+    if (objs.length === 1) {
+      on('pClip', 'change', (e) => {
+        const o = objs[0];
+        if (e.target.checked) {
+          const c = B.objCenter(o);
+          o.clip = Math.max(0, B.pageIndexAt(c.x, c.y));
+        } else {
+          delete o.clip;
+        }
+        c.requestRenderAll();
+        B.commit();
+        renderProps();
+      });
+    }
     if (!objs.length) bindPaper($, on);
     else if (objs.length === 1 && objs[0].kind === 'text' && !objs[0].locked) bindText(objs[0], $, on, live);
   }
@@ -409,6 +450,11 @@
       U.toast('AI models removed', 'ok');
       renderProps();
     });
+    if (CC.zine.active) return CC.zine.bindPanel($, on, renderProps);
+    bindCollagePaper($, on);
+  }
+
+  function bindCollagePaper($, on) {
     on('pPreset', 'change', (e) => { B.applyPreset(e.target.value); renderProps(); });
     U.$$('#pOrient [data-v]').forEach((b) => (b.onclick = () => {
       const p = B.paper;
@@ -527,6 +573,11 @@
         break;
     }
   };
+
+  // shared with the zine panel
+  P.toHex = toHex;
+  P.swatches = swatches;
+  P.PAPERS = PAPERS;
 
   P.init = () => {
     initLayers();

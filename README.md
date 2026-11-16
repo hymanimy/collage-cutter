@@ -35,6 +35,20 @@ This was born out of my frustration at how weirdly hard it is to find a basic ap
 5. **Text.** Click **Text** or press T. Choose the font, size, colour, bold/italic, alignment, line and letter spacing, an outline, and a label box behind it.
 6. **Export.** Save as PNG (optionally with a transparent background), JPEG or PDF, at screen, 150 or 300 DPI. Anything hanging off the paper gets trimmed, like real scissors.
 
+## Zines
+
+Switch to **Zine** at the top to make an 8-page mini zine from one sheet of paper. Collage mode and zine mode each keep their own work, and the photo tray is shared.
+
+- **Pages.** The strip under the paper shows the zine in reading order: front cover, the spreads 2–3, 4–5 and 6–7, the back cover, and the poster. Click one to work on it, or use PgUp / PgDn. Each spread is one wide canvas with the fold marked, so pieces can run across it. All the usual tools work, and each page keeps its own undo history.
+- **Filling a page.** Drop a `.collage` file or a photo onto a page, or use **Fill page…** in the panel on the right. A collage arrives as its own editable pieces, scaled to cover the page and trimmed at the fold, and the page takes on its paper colour. The **Trim to page** checkbox on a piece turns the trimming on or off.
+- **Printed sheet.** Click **Sheet** to see both sides of the sheet as they will print. The top row is upside down, so every page is the right way up once folded. Click a page there to edit it.
+- **Poster.** The poster prints on the back of the sheet. Folding hides that side inside the zine, so it only shows when you unfold it. It can be landscape or portrait.
+- **Options** (click empty paper to see them): sheet size (A4, US Letter, A3 or custom), page colours, page numbers on pages 2–7, and a printer-safe margin guide that marks where home printers usually can't print.
+- **Flip through** previews the folded zine one page at a time.
+- **Export** makes a PDF: page 1 is the 8-page side and page 2 is the poster. Print at actual size (100%), and double-sided for the poster. Either flip setting works.
+- **Save** writes a `.zine` file with everything embedded, photos included. Open it, or drop it onto the window, to carry on.
+- **Folding:** [see this image on how to fold a zine](https://www.42ndstreet.org.uk/media/etdlxppk/zine-guide-colour.jpg) (illustration by [42nd Street](https://www.42ndstreet.org.uk/)). The app also links to it from the page strip, the sheet view and the export dialog.
+
 ## AI features: first use and offline
 
 - The first time you use Find objects or Magic select, the app asks before downloading about **96 MB** of AI files: the AI runtime, a D-FINE object detector and Meta's SAM 2.1 "Segment Anything" model.
@@ -46,7 +60,8 @@ This was born out of my frustration at how weirdly hard it is to find a basic ap
 
 - Work **autosaves in the browser**, so closing the tab or refreshing is safe.
 - **Save** downloads a `.collage` project file with everything embedded, including photos. **Open** it later, or drop it onto the window, to carry on editing.
-- **New** clears the paper and keeps your photos in the tray. To empty the tray, use the bin icon in the Photos header. Pieces already on the paper stay, and you can still re-edit them.
+- In zine mode, **Save** writes a `.zine` file instead (see [Zines](#zines)).
+- **New** clears the paper (or, in zine mode, the whole zine) and keeps your photos in the tray. To empty the tray, use the bin icon in the Photos header. Pieces already on the paper stay, and you can still re-edit them.
 
 ## Shortcuts
 
@@ -62,6 +77,7 @@ This was born out of my frustration at how weirdly hard it is to find a basic ap
 | Ctrl+scroll / pinch | Zoom |
 | Ctrl+0 | Fit paper to window |
 | Ctrl+S / Ctrl+O / Ctrl+E | Save / open / export |
+| PgUp / PgDn | Previous / next zine page |
 
 ## Notes
 

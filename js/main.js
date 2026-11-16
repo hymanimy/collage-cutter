@@ -32,15 +32,32 @@
       if (added.length === 1) CC.app.openCutter(added[0].id);
     },
     async newCollage() {
+      if (CC.zine.active) return CC.zine.newZine();
       if (B.canvas.getObjects().length) {
         const ok = await U.confirm({ title: 'Start a new collage?', message: 'This clears the paper. Your photos stay in the tray. (Save the project first if you want to keep this one.)', ok: 'Clear paper', danger: true });
         if (!ok) return;
       }
       B.clear();
       B.resetHistory();
-      CC.sources.gc(new Set());
+      CC.sources.gc(CC.app.referencedSources());
       CC.sources.renderTray();
       CC.io.saveNow();
+    },
+    /* Photos that any piece still uses: the board, its undo history, the other mode and every zine page. */
+    referencedSources() {
+      const texts = [JSON.stringify(B.getState()), ...B.historyStrings()];
+      const Z = CC.zine;
+      if (Z.active && Z.stash) texts.push(JSON.stringify(Z.stash.state), ...((Z.stash.hist && Z.stash.hist.stack) || []));
+      if (Z.data) texts.push(JSON.stringify(Z.data));
+      for (const h of Object.values(Z.hist)) texts.push(...(h.stack || []));
+      const ids = new Set();
+      for (const t of texts) {
+        for (const m of t.matchAll(/"cutId":"([^"]+)"/g)) {
+          const c = CC.cuts.get(m[1]);
+          if (c) ids.add(c.sourceId);
+        }
+      }
+      return ids;
     },
   };
 
@@ -59,7 +76,7 @@
     const projectInput = U.$('#projectInput');
     const pickPhotos = () => photoInput.click();
     photoInput.onchange = () => { CC.app.importFiles(photoInput.files); photoInput.value = ''; };
-    projectInput.onchange = () => { if (projectInput.files[0]) CC.io.openProject(projectInput.files[0]); projectInput.value = ''; };
+    projectInput.onchange = () => { if (projectInput.files[0]) CC.io.openFile(projectInput.files[0]); projectInput.value = ''; };
 
     U.$('#btnNew').onclick = CC.app.newCollage;
     U.$('#btnOpen').onclick = () => projectInput.click();
@@ -102,8 +119,11 @@
       depth = 0;
       overlay.classList.remove('show');
       const files = [...e.dataTransfer.files];
+      const zine = files.find((f) => /\.zine$/i.test(f.name));
+      if (zine) return CC.io.openFile(zine);
+      if (CC.zine.handleDrop(files, e)) return; // dropped onto a zine page
       const project = files.find((f) => /\.collage$/i.test(f.name));
-      if (project) CC.io.openProject(project);
+      if (project) CC.io.openFile(project);
       else CC.app.importFiles(files);
     });
 
@@ -142,7 +162,9 @@
       else if (e.code === 'BracketRight') CC.panels.act(mod ? 'toFront' : 'forward');
       else if (e.code === 'BracketLeft') CC.panels.act(mod ? 'toBack' : 'backward');
       else if (k === 'Delete' || k === 'Backspace') B.deleteSelected();
+      else if (k === 'Escape' && CC.zine.active && CC.zine.view === 'sheet') CC.zine.setView('pages');
       else if (k === 'Escape') { B.canvas.discardActiveObject(); B.canvas.requestRenderAll(); }
+      else if (CC.zine.active && (k === 'PageDown' || k === 'PageUp')) CC.zine.step(k === 'PageDown' ? 1 : -1);
       else if (k === 'ArrowLeft') B.nudge(-step, 0);
       else if (k === 'ArrowRight') B.nudge(step, 0);
       else if (k === 'ArrowUp') B.nudge(0, -step);
@@ -166,6 +188,7 @@
     CC.cutter.init();
     CC.panels.init();
     CC.io.initExport();
+    CC.zine.init();
     CC.sources.initTray({ onCut: CC.app.openCutter, onWhole: CC.app.placeWhole });
     wireToolbar();
     wireDrop();
@@ -173,7 +196,7 @@
 
     await CC.sources.restore(await CC.db.getAllSources().catch(() => []));
     await CC.io.loadAutosave();
-    CC.sources.gc(new Set(B.canvas.getObjects().filter((o) => o.kind === 'cut').map((o) => o.sourceId)));
+    CC.sources.gc(CC.app.referencedSources());
     CC.sources.renderTray();
     B.resetHistory();
     B.fit();

@@ -143,6 +143,8 @@
     await CC.db.clearSources().catch(() => {});
   };
 
+  S.persist = (s) => CC.db.putSource(record(s)).catch(() => {});
+
   S.persistAll = async () => {
     for (const s of S.map.values()) await CC.db.putSource(record(s)).catch(() => {});
   };

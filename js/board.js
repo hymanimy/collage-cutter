@@ -25,7 +25,9 @@
   B.toPx = (v, unit) => (unit === 'mm' ? v * PX_PER_MM : unit === 'in' ? v * 96 : v);
   B.fromPx = (v, unit) => (unit === 'mm' ? v / PX_PER_MM : unit === 'in' ? v / 96 : v);
 
-  B.paper = { preset: 'a4', orient: 'portrait', unit: 'mm', w: U.round(210 * PX_PER_MM, 3), h: U.round(297 * PX_PER_MM, 3), color: '#ffffff' };
+  const DEFAULT_PAPER = { preset: 'a4', orient: 'portrait', unit: 'mm', w: U.round(210 * PX_PER_MM, 3), h: U.round(297 * PX_PER_MM, 3), color: '#ffffff' };
+  B.paper = { ...DEFAULT_PAPER };
+  const clone = (o) => JSON.parse(JSON.stringify(o));
 
   B.setPaper = (p, { silent = false, keepView = false } = {}) => {
     B.paper = { ...B.paper, ...p };
@@ -84,6 +86,19 @@
       ctx.drawImage(lvl, -this.width / 2, -this.height / 2, this.width, this.height);
     };
 
+    /* Pieces can be trimmed to one page of a zine spread (o.clip = page index on the paper). */
+    const origRender = fabric.Object.prototype.render;
+    fabric.Object.prototype.render = function (ctx) {
+      const r = clipRectFor(this);
+      if (!r) return origRender.call(this, ctx);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(r.x, r.y, r.w, r.h);
+      ctx.clip();
+      origRender.call(this, ctx);
+      ctx.restore();
+    };
+
     /* Text with an optional rounded "label" box behind it. Box padding/radius are fractions of fontSize. */
     fabric.CollageText = fabric.util.createClass(fabric.IText, {
       type: 'collageText',
@@ -127,7 +142,7 @@
       targetFindTolerance: 4,
     }));
     c._renderBackground = drawPaper;
-    c._renderOverlay = drawOffPaperDim;
+    c._renderOverlay = drawOverlay;
 
     new ResizeObserver(() => {
       c.setDimensions({ width: ws.clientWidth, height: ws.clientHeight });
@@ -140,23 +155,49 @@
     B.fit();
   };
 
+  /* The paper a canvas shows: the live board's, or the one an offscreen renderer is drawing. */
+  const paperOf = (cv) => (cv && cv.paperState) || B.paper;
+  const isOutput = (cv) => !!(cv && cv.isRenderer) || !!B.exporting;
+
+  function clipRectFor(o) {
+    if (o.clip == null) return null;
+    const cv = o.canvas;
+    if (!cv) return null;
+    const p = paperOf(cv);
+    return (p.pages && p.pages[o.clip]) || null;
+  }
+
   function drawPaper(ctx) {
-    const v = this.viewportTransform, p = B.paper;
-    if (B.exporting && B.exporting.transparent) return;
+    const v = this.viewportTransform, p = paperOf(this);
+    const out = isOutput(this);
+    if (!this.isRenderer && B.exporting && B.exporting.transparent) return;
     ctx.save();
     ctx.transform(v[0], v[1], v[2], v[3], v[4], v[5]);
-    if (!B.exporting) {
+    if (!out) {
       ctx.shadowColor = 'rgba(0,0,0,0.35)';
       ctx.shadowBlur = 22;
       ctx.shadowOffsetY = 6;
     }
     ctx.fillStyle = p.color;
     ctx.fillRect(0, 0, p.w, p.h);
+    ctx.shadowColor = 'transparent';
+    // zine pages can each have their own colour
+    for (const pg of p.pages || []) {
+      if (!pg.color || pg.color === p.color) continue;
+      ctx.fillStyle = pg.color;
+      ctx.fillRect(pg.x, pg.y, pg.w, pg.h);
+    }
     ctx.restore();
   }
 
+  function drawOverlay(ctx) {
+    const out = isOutput(this);
+    if (!out) drawOffPaperDim.call(this, ctx);
+    // extra decoration (zine page numbers, guides); `editor` is false for exports and previews
+    if (B.decorate) B.decorate(ctx, this.viewportTransform, paperOf(this), { editor: !out });
+  }
+
   function drawOffPaperDim(ctx) {
-    if (B.exporting) return;
     const v = this.viewportTransform, p = B.paper;
     ctx.save();
     ctx.beginPath();
@@ -188,6 +229,10 @@
 
   B.fit = () => {
     if (!B.canvas) return;
+    const ws = U.$('#workspace');
+    if (ws.clientWidth && (ws.clientWidth !== B.canvas.width || ws.clientHeight !== B.canvas.height)) {
+      B.canvas.setDimensions({ width: ws.clientWidth, height: ws.clientHeight });
+    }
     const W = B.canvas.width, H = B.canvas.height, p = B.paper;
     const z = U.clamp(Math.min((W - 80) / p.w, (H - 80) / p.h), 0.03, 8);
     setVpt(z, (W - p.w * z) / 2, (H - p.h * z) / 2);
@@ -252,6 +297,7 @@
     c.on('object:modified', (e) => {
       const t = e.target;
       if (t && t.kind === 'text' && !t.group) bakeTextScale(t);
+      if (t) updateClips(t);
       B.commit();
     });
     c.on('object:rotating', (e) => {
@@ -274,6 +320,24 @@
     c.on('mouse:dblclick', (e) => {
       if (e.target && e.target.kind === 'cut' && !e.target.locked) CC.app.reEditCut(e.target);
     });
+  }
+
+  /* A piece trimmed to a page follows its centre when it's dragged onto the other page of a spread. */
+  B.pageIndexAt = (x, y, p = B.paper) => (p.pages || []).findIndex((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+  B.objCenter = (o) => {
+    const c = o.getCenterPoint();
+    return o.group ? fabric.util.transformPoint(c, o.group.calcTransformMatrix()) : c;
+  };
+  function updateClips(t) {
+    const p = B.paper;
+    if (!p.pages || p.pages.length < 2) return;
+    const objs = t.type === 'activeSelection' ? t.getObjects() : [t];
+    for (const o of objs) {
+      if (o.clip == null) continue;
+      const c = B.objCenter(o);
+      const i = B.pageIndexAt(c.x, c.y);
+      if (i >= 0) o.clip = i;
+    }
   }
 
   function bakeTextScale(t) {
@@ -384,6 +448,7 @@
       left: r2(o.left), top: r2(o.top), scaleX: r2(o.scaleX), scaleY: r2(o.scaleY), angle: r2(o.angle),
       flipX: !!o.flipX, flipY: !!o.flipY, opacity: r2(o.opacity), visible: o.visible !== false, locked: !!o.locked,
     };
+    if (o.clip != null) base.clip = o.clip;
     if (o.kind === 'cut') {
       base.cutId = o.cutId;
       if (o.sticker) base.sticker = { ...o.sticker };
@@ -425,7 +490,7 @@
 
   B.getState = () =>
     B.withPlainSelection(() => ({
-      paper: { ...B.paper },
+      paper: clone(B.paper),
       objects: B.canvas.getObjects().map(B.serializeObj),
     }));
 
@@ -437,7 +502,7 @@
     c.discardActiveObject();
     c.renderOnAddRemove = false;
     c.remove(...c.getObjects());
-    B.paper = { ...B.paper, ...(state.paper || {}) };
+    B.paper = { ...DEFAULT_PAPER, ...clone(state.paper || {}) };
     let missing = 0;
     for (const d of state.objects || []) {
       const o = B.deserializeObj(d);
@@ -473,6 +538,15 @@
     H.idx = 0;
     CC.emit('change', {});
   };
+  // Each zine page / the collage keeps its own undo history while you switch between them.
+  B.getHistory = () => ({ stack: H.stack.slice(), idx: H.idx });
+  B.setHistory = (h) => {
+    if (!h || !h.stack || !h.stack.length) return B.resetHistory();
+    H.stack = h.stack.slice();
+    H.idx = U.clamp(h.idx, 0, H.stack.length - 1);
+    CC.emit('change', {});
+  };
+  B.historyStrings = () => H.stack;
   B.canUndo = () => H.idx > 0;
   B.canRedo = () => H.idx < H.stack.length - 1;
   B.undo = () => {
@@ -532,9 +606,11 @@
       U.toast('Nothing to place — draw a shape around part of the photo first', 'warn');
       return null;
     }
-    const p = B.paper;
-    const s = Math.min((p.w * 0.85) / src.w, (p.h * 0.85) / src.h);
     const ctr = B.viewCenter();
+    // on a zine spread, size the photo to the page you're looking at
+    const pi = B.pageIndexAt(ctr.x, ctr.y);
+    const p = pi >= 0 ? B.paper.pages[pi] : B.paper;
+    const s = Math.min((p.w * 0.85) / src.w, (p.h * 0.85) / src.h);
     const o = B.makeCutPiece(cut.id, {
       left: ctr.x + (e.box.x + e.box.w / 2 - src.w / 2) * s,
       top: ctr.y + (e.box.y + e.box.h / 2 - src.h / 2) * s,
@@ -670,6 +746,29 @@
     B.canvas.discardActiveObject();
     B.canvas.remove(...B.canvas.getObjects());
     B.canvas.requestRenderAll();
+  };
+
+  /* ---------- Offscreen rendering ----------
+     Draw any saved state ({paper, objects}) to a new canvas at `scale` — used for zine thumbnails,
+     the printed-sheet view, the flip-through preview and zine export. */
+  let R = null;
+  B.renderState = (state, scale) => {
+    if (!R) {
+      R = new fabric.StaticCanvas(null, { enableRetinaScaling: false, renderOnAddRemove: false });
+      R.isRenderer = true;
+      R._renderBackground = drawPaper;
+      R._renderOverlay = drawOverlay;
+    }
+    const p = { ...DEFAULT_PAPER, ...state.paper };
+    R.paperState = p;
+    const objs = (state.objects || []).map((d) => B.deserializeObj(d)).filter(Boolean);
+    if (objs.length) R.add(...objs);
+    try {
+      return R.toCanvasElement(scale, { left: 0, top: 0, width: p.w, height: p.h });
+    } finally {
+      if (objs.length) R.remove(...objs);
+      R.paperState = null;
+    }
   };
 
   /* ---------- Export rendering ---------- */
